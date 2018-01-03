@@ -36,7 +36,7 @@ var db = [
 ];
 
 var jwtOptions = {}
-jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeader(); //ExtractJwt.fromAuthHeaderAsBearerToken();
+jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeader(); //ExtractJwt.fromAuthHeader();
 jwtOptions.secretOrKey = 'secret key bla bla';
 //jwtOptions.issuer = 'accounts.examplesoft.com';
 //jwtOptions.audience = 'yoursite.net';
