@@ -108,7 +108,6 @@ console.log('`Lazy` component loaded asynchronously');
  */
 var LazyComponent = /** @class */ (function () {
     function LazyComponent(exampleService, store) {
-        var _this = this;
         this.exampleService = exampleService;
         this.store = store;
         this.pageHeader = new __WEBPACK_IMPORTED_MODULE_1__shared_components_components__["a" /* PageHeader */]('LAZY', '');
@@ -119,14 +118,17 @@ var LazyComponent = /** @class */ (function () {
         this.pageNumSubscription = this.pageNum$.subscribe(function (val) {
             console.log("Page num retrieved from ngrx-store is " + val);
         });
+    }
+    LazyComponent.prototype.ngOnInit = function () {
+        var _this = this;
         // call a service and dispatch an action to ngrx to trigger a new event into pageNum$ Observable
         this.exampleServiceSubscription = this.exampleService.getExample()
             .subscribe(function (val) {
-            console.log("Result of getExample " + val);
+            console.log("Result of getExample", val);
             // dispatch the setPageNum action with '4' as payload
             _this.store.dispatch(new __WEBPACK_IMPORTED_MODULE_5__actions_page_num__["c" /* SetPageNum */](4)); // I chose a constant value for this example :)
         });
-    }
+    };
     LazyComponent.prototype.ngOnDestroy = function () {
         console.log('Destroy called');
         // unsubscribe to all Subscriptions to prevent memory leaks and wrong behaviour
