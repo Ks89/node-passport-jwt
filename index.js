@@ -20,8 +20,8 @@ var db = [
   {
     credential: {
       id: 1,
-      username: 'jonathanmh',
-      password: '%2yx4'
+      username: 'admin',
+      password: 'admin'
     },
     somethingelse: ''
   },
@@ -35,43 +35,60 @@ var db = [
   }
 ];
 
+let tokens = [];
+
 var jwtOptions = {}
 jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken(); //ExtractJwt.fromAuthHeader();
 jwtOptions.secretOrKey = 'secret key bla bla';
 //jwtOptions.issuer = 'accounts.examplesoft.com';
 //jwtOptions.audience = 'yoursite.net';
 
-passport.use(new JwtStrategy(jwtOptions, function(jwt_payload, next) {
+passport.use(new JwtStrategy(jwtOptions, function(jwt_payload, done) {
   console.log('payload received', jwt_payload);
 
   if (!jwt_payload) {
     console.error('jwt payload not valid');
-    next(null, false);
+    done(null, false);
   }
 
-  console.debug('jwt_payload is valid', jwt_payload);
+  console.log('jwt_payload is', jwt_payload);
+
+  let isLoggedIn = tokens.findIndex(o => o && o.userId === jwt_payload.id) !== -1;
+  console.log('jwtStrategy verify with isLoggedIn: ', isLoggedIn);
+
+  if (!isLoggedIn) {
+    console.error('cannot find previous login in tokenMap with payload', jwt_payload);
+    return done(null, false);
+  }
+
+  // if (!tokenMap.has(jwt_payload.id)) {
+  //   console.error(`cannot find user with id=${jwt_payload.id} in tokenMap`);
+  //   done(null, false);
+  // } else {
+  //   let jwtFromMap = tokenMap.get(jwt_payload.id);
+  // }
 
   try {
     let isJwtValidDate = Utils.isJwtValidDate(jwt_payload);
-    console.debug('isJwtValidDate', isJwtValidDate);
+    console.log('isJwtValidDate', isJwtValidDate);
 
     if (!isJwtValidDate) {
       console.error('jwt has an invalid data');
-      next(null, false);
+      done(null, false);
     }
 
-    console.debug('systemDate valid');
+    console.log('systemDate valid');
 
     var user = db[_.findIndex(db, o => o && o.credential && o.credential.id === jwt_payload.id)];
     console.log(' user obtained from payload ', user);
     if (user && user.credential) {
-      next(null, user.credential);
+      done(null, user.credential);
     } else {
-      next(null, false);
+      done(null, false);
     }
   } catch (err2) {
     console.error('exception thrown by isJwtValidDate', err2);
-    next(null, false);
+    done(null, false);
   }
 }));
 
@@ -122,9 +139,10 @@ app.post("/api/login", function(req, res) {
     var password = req.body.password;
   }
   // usually this would be a database call:
-  var user = db[_.findIndex(db, o => o && o.credential && o.username === username)];
+  var user = db[_.findIndex(db, o => o && o.credential && o.credential.username === username)];
   if( !user || !user.credential  ){
     res.status(401).json({message:"no such user found"});
+    return;
   }
 
   console.log('user: ', user);
@@ -135,6 +153,19 @@ app.post("/api/login", function(req, res) {
     console.log('payload', payload );
     var token = jwt.sign(getJwtToSign(payload), jwtOptions.secretOrKey);
     console.log('token', token );
+
+    let indexLoggedUser = tokens.findIndex(o => o && (o.token === token || o.userId === user.credential.id));
+
+    if (indexLoggedUser !== -1) {
+      tokens.splice(indexLoggedUser, 1); // remove element
+      tokens.push({token: token, userId: user.credential.id});
+    } else {
+      tokens.push({token: token, userId: user.credential.id});
+    }
+    // tokenMap.set(token, user.credential.id);
+
+    console.log('tokens', tokens);
+
     res.json({message: "ok", token: token});
   } else {
     res.status(401).json({message:"passwords did not match"});
@@ -157,6 +188,18 @@ function getJwtToSign(thisObject) {
 
 app.get("/api/secret", passport.authenticate('jwt', { session: false }), function(req, res){
   res.json({message: "Success! You can not see this without a token"});
+});
+
+app.get("/api/logout", passport.authenticate('jwt', { session: false }), function(req, res){
+  console.log('req.headers.authorization is ', req.headers.authorization);
+  console.log('req.user is ', req.user);
+
+  let currentToken = req.headers.authorization.replace('Bearer ','');
+  let currentUser = req.user;
+  tokens = tokens.filter(o => o && currentToken && currentUser && o.token !== currentToken && o.userId !== currentUser.id);
+
+  console.log('tokens after logout', tokens);
+  res.json({message: "Logging out"});
 });
 
 app.get("/api/secretDebug",
